@@ -1,0 +1,79 @@
+pragma solidity ^0.6.8 ;
+
+contract Wallet {
+    
+    address owner1;
+    address owner2;
+    address owner3;
+    uint numConfirmationsNeeded;
+    
+    struct Transaction{
+        address to;
+        uint amount;
+        bool executed;
+        uint numConfirmations;
+    }
+    
+    Transaction[] transactions;
+    mapping(uint => mapping(address => bool)) isConfirmed;
+    
+    constructor() public{
+      owner1 = 0x5B38Da6a701c568545dCfcB03FcB875f56beddC4; 
+      owner2 = 0xAb8483F64d9C6d1EcF9b849Ae677dD3315835cb2; 
+      owner3 = 0xCA35b7d915458EF540aDe6068dFe2F44E8fa733c; 
+      numConfirmationsNeeded = 2;
+    }
+    
+    modifier isOwner() {
+       require(msg.sender == owner1 || msg.sender == owner2 || msg.sender == owner3, "You are not an owner"); 
+       _;
+    }
+    
+     modifier txExists(uint _txIndex) {
+        require(_txIndex < transactions.length, "tx does not exist");
+        _;
+    }
+
+    modifier notExecuted(uint _txIndex) {
+        require(!transactions[_txIndex].executed, "tx already executed");
+        _;
+    }
+
+    modifier notConfirmed(uint _txIndex) {
+        require(!isConfirmed[_txIndex][msg.sender], "tx already confirmed");
+        _;
+    }
+    
+    function Deposit() public payable{
+    
+    }
+    
+    receive () external payable{
+    
+    }
+
+    function submitTransaction(address to, uint amount) public isOwner{
+        uint index = transactions.length;
+        Transaction memory cur = Transaction(to, amount, false, 0);
+        transactions.push(cur);
+    }
+    
+    function confirmTransactions(uint index) public isOwner txExists(index) notConfirmed(index) notExecuted(index){
+        Transaction storage cur = transactions[index];
+        cur.numConfirmations ++;
+        isConfirmed[index][msg.sender] = true;
+    }
+    
+    function executeTransaction(uint index) public isOwner notExecuted(index) txExists(index){
+        Transaction storage cur = transactions[index];
+        require(cur.numConfirmations >= numConfirmationsNeeded, "Not enough confirmations");
+        require(address(this).balance >= cur.amount, "Not enough funds in the contract");
+        payable(cur.to).transfer(cur.amount);
+        cur.executed = true;
+    }
+    
+    function getBalance() public view returns(uint){
+        return address(this).balance;
+    }
+    
+}
